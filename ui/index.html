@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Pipeline — Test UI</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3350;
+      --accent:    #6c63ff;
+      --accent2:   #4fc3f7;
+      --green:     #4caf97;
+      --red:       #ef5350;
+      --yellow:    #ffd54f;
+      --text:      #e8eaf6;
+      --muted:     #8892b0;
+      --radius:    10px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.3px; }
+    h2 { font-size: 1rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
+    a  { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .wrapper { max-width: 900px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo { font-size: 1.8rem; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── Health bar ───────────────────────────────────────────────────── */
+    #health-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      font-size: .82rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: .78rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-red    { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-grey   { background: var(--muted); }
+
+    /* ── Drop zone ────────────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,99,255,.06);
+    }
+    #drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    #drop-zone .drop-icon { font-size: 2.4rem; margin-bottom: 8px; }
+    #drop-zone .drop-hint { color: var(--muted); font-size: .88rem; margin-top: 4px; }
+    #file-name {
+      margin-top: 10px;
+      font-size: .85rem;
+      color: var(--accent2);
+      font-weight: 600;
+      min-height: 1.2em;
+    }
+
+    /* ── Audio player ─────────────────────────────────────────────────── */
+    #audio-preview {
+      width: 100%;
+      display: none;
+      margin-bottom: 8px;
+      accent-color: var(--accent);
+    }
+
+    /* ── Form grid ────────────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: .82rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+
+    select, input[type="number"], input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: .92rem;
+      outline: none;
+      transition: border-color .2s;
+      width: 100%;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+    }
+    .toggle-row label { font-size: .9rem; color: var(--text); cursor: pointer; }
+
+    .toggle {
+      position: relative; width: 42px; height: 24px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; top: 3px;
+      background: var(--muted);
+      border-radius: 50%;
+      transition: transform .2s, background .2s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(18px); background: #fff; }
+
+    /* ── Indic / Whisper option groups ────────────────────────────────── */
+    .opt-group {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .opt-group-title {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    .opt-group.whisper .opt-group-title { color: var(--accent2); }
+
+    /* ── Submit button ────────────────────────────────────────────────── */
+    #btn-submit {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .3px;
+      transition: opacity .2s, transform .1s;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #btn-submit:hover:not(:disabled) { opacity: .88; }
+    #btn-submit:active:not(:disabled) { transform: scale(.98); }
+    #btn-submit:disabled { opacity: .45; cursor: not-allowed; }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Progress ─────────────────────────────────────────────────────── */
+    #progress-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 14px;
+      display: none;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width .4s;
+      animation: indeterminate 1.4s infinite;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 60%; }
+      100% { transform: translateX(200%);  width: 60%; }
+    }
+
+    /* ── Result ───────────────────────────────────────────────────────── */
+    #result-section { display: none; }
+
+    .meta-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .meta-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .meta-chip span { color: var(--text); font-weight: 600; }
+
+    #transcript-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 16px;
+      min-height: 60px;
+    }
+
+    .copy-btn {
+      float: right;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: .78rem;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+      margin-left: 8px;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Segments ─────────────────────────────────────────────────────── */
+    #segments-wrap { display: none; }
+
+    .segment {
+      display: flex;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .9rem;
+    }
+    .segment:last-child { border-bottom: none; }
+    .seg-time {
+      flex: 0 0 110px;
+      color: var(--accent2);
+      font-family: monospace;
+      font-size: .82rem;
+      padding-top: 2px;
+    }
+    .seg-text { flex: 1; line-height: 1.6; }
+
+    .word-span {
+      display: inline-block;
+      cursor: default;
+      border-radius: 3px;
+      padding: 1px 2px;
+      transition: background .15s;
+    }
+    .word-span:hover { background: rgba(108,99,255,.25); }
+
+    /* ── Error ────────────────────────────────────────────────────────── */
+    #error-box {
+      display: none;
+      background: rgba(239,83,80,.1);
+      border: 1px solid rgba(239,83,80,.4);
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: #ff8a80;
+      font-size: .9rem;
+      margin-top: 16px;
+    }
+
+    /* ── History ──────────────────────────────────────────────────────── */
+    #history-list { list-style: none; }
+    #history-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .86rem;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    #history-list li:last-child { border-bottom: none; }
+    #history-list li:hover { color: var(--accent2); }
+    .hist-lang { flex: 0 0 36px; text-align: center; font-size: .75rem; background: var(--surface2); border-radius: 4px; padding: 2px 4px; color: var(--muted); }
+    .hist-text { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .hist-ms { flex: 0 0 60px; text-align: right; color: var(--muted); }
+
+    #no-history { color: var(--muted); font-size: .88rem; padding: 12px 0; }
+
+    /* ── API base URL bar ─────────────────────────────────────────────── */
+    #api-url-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+    }
+    #api-url-bar label { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+    #api-url-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 0;
+      font-size: .9rem;
+    }
+    #api-url-bar input:focus { outline: none; }
+    #btn-check-health {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: .82rem;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: border-color .15s;
+      white-space: nowrap;
+    }
+    #btn-check-health:hover { border-color: var(--accent); }
+
+    /* ── Scrollbar ────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <header>
+    <div class="header-left">
+      <span class="logo">🎙️</span>
+      <div>
+        <h1>Voice Pipeline</h1>
+        <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">ASR Test UI &nbsp;·&nbsp; Indic + Whisper</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a href="#" id="link-docs" target="_blank">Swagger docs ↗</a>
+      &nbsp;|&nbsp;
+      <a href="#" id="link-redoc" target="_blank">ReDoc ↗</a>
+    </div>
+  </header>
+
+  <!-- ── API base URL ─────────────────────────────────────────────────── -->
+  <div id="api-url-bar">
+    <label>API base URL</label>
+    <input id="input-base-url" type="text" value="http://localhost:8000" spellcheck="false" />
+    <button id="btn-check-health">Check health</button>
+  </div>
+
+  <!-- ── Health status ────────────────────────────────────────────────── -->
+  <div class="card" id="health-card">
+    <h2>Service status</h2>
+    <div id="health-bar">
+      <span class="badge"><span class="dot dot-grey" id="dot-overall"></span><span id="lbl-overall">—</span></span>
+      <span class="badge"><span class="dot dot-grey" id="dot-indic"></span>Indic <span id="lbl-indic" style="color:var(--muted);margin-left:4px">—</span></span>
+      <span class="badge"><span class="dot dot-grey" id="dot-whisper"></span>Whisper <span id="lbl-whisper" style="color:var(--muted);margin-left:4px">—</span></span>
+      <span class="badge" id="badge-device" style="display:none"><span id="lbl-device">—</span></span>
+      <span class="badge" id="badge-uptime" style="display:none">⏱ <span id="lbl-uptime">—</span></span>
+      <span class="badge" id="badge-requests" style="display:none">📊 <span id="lbl-requests">—</span></span>
+    </div>
+  </div>
+
+  <!-- ── Transcription form ────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Transcribe audio</h2>
+
+    <!-- Drop zone -->
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept="audio/*" />
+      <div class="drop-icon">📂</div>
+      <div>Drop an audio file here or <strong>click to browse</strong></div>
+      <div class="drop-hint">WAV · FLAC · MP3 · OGG · OPUS · WebM · M4A · AAC &nbsp;|&nbsp; max 50 MB</div>
+      <div id="file-name"></div>
+    </div>
+
+    <audio id="audio-preview" controls></audio>
+
+    <!-- Language + core options -->
+    <div class="form-grid" style="margin-bottom:16px;">
+      <div class="form-group">
+        <label>Language</label>
+        <select id="sel-language">
+          <option value="">Loading languages…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Initial prompt <span style="font-weight:400;text-transform:none;">(optional hint)</span></label>
+        <input id="input-prompt" type="text" placeholder="e.g. medical dictation, proper nouns …" />
+      </div>
+    </div>
+
+    <!-- Indic options -->
+    <div id="opt-indic" class="opt-group" style="display:none;">
+      <div class="opt-group-title">🇮🇳 Indic Conformer options</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Decode mode</label>
+          <select id="sel-decode-mode">
+            <option value="ctc">CTC — faster</option>
+            <option value="rnnt">RNNT — more accurate</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Whisper options -->
+    <div id="opt-whisper" class="opt-group whisper" style="display:none;">
+      <div class="opt-group-title">🔬 Whisper options</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Task</label>
+          <select id="sel-task">
+            <option value="transcribe">Transcribe (original language)</option>
+            <option value="translate">Translate to English</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Beam size</label>
+          <input id="input-beam" type="number" value="5" min="1" max="10" />
+        </div>
+      </div>
+      <div class="toggle-row">
+        <label for="tog-word-ts">Word-level timestamps</label>
+        <label class="toggle">
+          <input type="checkbox" id="tog-word-ts">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button id="btn-submit" disabled>
+      <div class="spinner" id="spinner"></div>
+      <span id="btn-label">Select a file to begin</span>
+    </button>
+
+    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+
+    <!-- Error -->
+    <div id="error-box"></div>
+  </div>
+
+  <!-- ── Result ────────────────────────────────────────────────────────── -->
+  <div class="card" id="result-section">
+    <h2>
+      Result
+      <button class="copy-btn" id="btn-copy" title="Copy transcript">Copy</button>
+    </h2>
+
+    <div class="meta-grid" id="meta-grid"></div>
+
+    <div id="transcript-box"></div>
+
+    <div id="segments-wrap">
+      <h2 style="margin-top:8px;">Segments</h2>
+      <div id="segments-list"></div>
+    </div>
+  </div>
+
+  <!-- ── History ───────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Recent requests <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:.8rem;">(this session)</span></h2>
+    <div id="no-history">No transcriptions yet.</div>
+    <ul id="history-list"></ul>
+  </div>
+
+</div>
+
+<script>
+/* ── State ──────────────────────────────────────────────────────────────── */
+let baseUrl = 'http://localhost:8000';
+let selectedFile = null;
+let history = [];
+const INDIC_CODES = new Set();
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const fmt = n  => n.toFixed(2);
+const fmtMs = n => n >= 1000 ? (n/1000).toFixed(1)+'s' : n.toFixed(0)+'ms';
+
+function setBaseUrl(url) {
+  baseUrl = url.replace(/\/+$/, '');
+  $('link-docs').href   = baseUrl + '/docs';
+  $('link-redoc').href  = baseUrl + '/redoc';
+}
+
+function showError(msg) {
+  const box = $('error-box');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+
+function clearError() {
+  $('error-box').style.display = 'none';
+}
+
+/* ── Base URL bar ───────────────────────────────────────────────────────── */
+$('input-base-url').addEventListener('input', e => {
+  setBaseUrl(e.target.value.trim() || 'http://localhost:8000');
+});
+setBaseUrl(baseUrl);
+
+$('btn-check-health').addEventListener('click', () => fetchHealth(true));
+
+/* ── Health ─────────────────────────────────────────────────────────────── */
+async function fetchHealth(verbose = false) {
+  try {
+    const r = await fetch(baseUrl + '/v1/health');
+    const d = await r.json();
+    renderHealth(d);
+  } catch (e) {
+    setDot('overall', 'red');
+    $('lbl-overall').textContent = 'Unreachable';
+    if (verbose) showError('Cannot reach ' + baseUrl + '/v1/health — is the server running?');
+  }
+}
+
+function setDot(key, color) {
+  const d = $('dot-' + key);
+  d.className = 'dot dot-' + color;
+}
+
+function renderHealth(d) {
+  const colorMap = { healthy: 'green', degraded: 'yellow', unhealthy: 'red' };
+  const color = colorMap[d.status] || 'grey';
+  setDot('overall', color);
+  $('lbl-overall').textContent = d.status;
+
+  const indicLoaded   = d.models?.indic?.loaded;
+  const whisperLoaded = d.models?.whisper?.loaded;
+  setDot('indic',   indicLoaded   ? 'green' : 'red');
+  setDot('whisper', whisperLoaded ? 'green' : 'red');
+  $('lbl-indic').textContent   = indicLoaded   ? 'ready' : 'not loaded';
+  $('lbl-whisper').textContent = whisperLoaded ? 'ready' : 'not loaded';
+
+  if (d.device) {
+    $('badge-device').style.display = '';
+    $('lbl-device').textContent = d.cuda_available
+      ? '⚡ ' + (d.cuda_device_name || 'GPU')
+      : '🖥 CPU';
+  }
+  if (d.uptime_seconds != null) {
+    $('badge-uptime').style.display = '';
+    $('lbl-uptime').textContent = fmtMs(d.uptime_seconds * 1000);
+  }
+  if (d.total_requests != null) {
+    $('badge-requests').style.display = '';
+    $('lbl-requests').textContent =
+      d.total_requests + ' req · ' + d.failed_requests + ' err';
+  }
+}
+
+/* ── Languages ──────────────────────────────────────────────────────────── */
+async function fetchLanguages() {
+  try {
+    const r = await fetch(baseUrl + '/v1/languages');
+    const d = await r.json();
+    populateLanguages(d.languages || []);
+  } catch (e) {
+    $('sel-language').innerHTML = '<option value="en">English (default)</option>';
+  }
+}
+
+function populateLanguages(langs) {
+  const sel = $('sel-language');
+  sel.innerHTML = '';
+
+  // Group: Indic first, then others
+  const indic   = langs.filter(l => l.model.startsWith('indic'));
+  const others  = langs.filter(l => !l.model.startsWith('indic'));
+
+  if (indic.length) {
+    const g = document.createElement('optgroup');
+    g.label = '🇮🇳 Indic (Conformer)';
+    indic.forEach(l => {
+      INDIC_CODES.add(l.code);
+      const o = new Option(`${l.name} (${l.code})`, l.code);
+      g.appendChild(o);
+    });
+    sel.appendChild(g);
+  }
+
+  if (others.length) {
+    const g = document.createElement('optgroup');
+    g.label = '🌍 Other languages (Whisper)';
+    others.forEach(l => {
+      const o = new Option(`${l.name} (${l.code})`, l.code);
+      g.appendChild(o);
+    });
+    sel.appendChild(g);
+  }
+
+  // Default to English
+  sel.value = 'en';
+  onLanguageChange();
+}
+
+function onLanguageChange() {
+  const code = $('sel-language').value;
+  const isIndic = INDIC_CODES.has(code);
+  $('opt-indic').style.display   = isIndic ? '' : 'none';
+  $('opt-whisper').style.display = isIndic ? 'none' : '';
+}
+
+$('sel-language').addEventListener('change', onLanguageChange);
+
+/* ── File handling ──────────────────────────────────────────────────────── */
+function onFileSelected(file) {
+  if (!file) return;
+  selectedFile = file;
+  $('file-name').textContent = `📎 ${file.name}  (${(file.size/1024/1024).toFixed(2)} MB)`;
+
+  // Preview
+  const preview = $('audio-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+
+  // Enable button
+  $('btn-submit').disabled = false;
+  $('btn-label').textContent = 'Transcribe';
+  clearError();
+}
+
+$('file-input').addEventListener('change', e => onFileSelected(e.target.files[0]));
+
+const dz = $('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) onFileSelected(file);
+});
+
+/* ── Transcribe ─────────────────────────────────────────────────────────── */
+$('btn-submit').addEventListener('click', async () => {
+  if (!selectedFile) return;
+  clearError();
+  setLoading(true);
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('language', $('sel-language').value);
+  fd.append('initial_prompt', $('input-prompt').value);
+
+  const code = $('sel-language').value;
+  if (INDIC_CODES.has(code)) {
+    fd.append('decode_mode', $('sel-decode-mode').value);
+  } else {
+    fd.append('task', $('sel-task').value);
+    fd.append('beam_size', $('input-beam').value);
+    fd.append('word_timestamps', $('tog-word-ts').checked ? 'true' : 'false');
+  }
+
+  try {
+    const res = await fetch(baseUrl + '/v1/transcribe', {
+      method: 'POST',
+      body: fd,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      const det = data?.detail;
+      const err = data?.error?.message
+        || (typeof det === 'string' ? det : det?.message || det?.code || JSON.stringify(det))
+        || JSON.stringify(data);
+      showError(`Error ${res.status}: ${err}`);
+      return;
+    }
+
+    renderResult(data);
+    addHistory(data);
+    fetchHealth();
+
+  } catch (e) {
+    showError('Network error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+});
+
+function setLoading(loading) {
+  $('btn-submit').disabled = loading;
+  $('spinner').style.display = loading ? 'block' : 'none';
+  $('btn-label').textContent  = loading ? 'Transcribing…' : 'Transcribe';
+  $('progress-bar-wrap').style.display = loading ? 'block' : 'none';
+}
+
+/* ── Render result ──────────────────────────────────────────────────────── */
+function renderResult(d) {
+  const sec = $('result-section');
+  sec.style.display = 'block';
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Transcript
+  $('transcript-box').textContent = d.text || '(empty)';
+
+  // Meta chips
+  const chips = [
+    ['Language',   `${d.language_name} (${d.language})`],
+    ['Model',      d.model],
+    ['Duration',   fmt(d.duration_seconds) + 's'],
+    ['Inference',  fmtMs(d.processing_time_ms)],
+    ['Request ID', d.request_id],
+  ];
+  if (d.decode_mode) chips.splice(2, 0, ['Decode', d.decode_mode.toUpperCase()]);
+
+  $('meta-grid').innerHTML = chips
+    .map(([k, v]) => `<div class="meta-chip">${k}: <span>${v}</span></div>`)
+    .join('');
+
+  // Segments
+  const swrap = $('segments-wrap');
+  const slist = $('segments-list');
+  slist.innerHTML = '';
+
+  if (d.segments && d.segments.length) {
+    swrap.style.display = 'block';
+    d.segments.forEach(seg => {
+      const div = document.createElement('div');
+      div.className = 'segment';
+
+      const timeStr = `${fmtTime(seg.start)} → ${fmtTime(seg.end)}`;
+      div.innerHTML = `<div class="seg-time">${timeStr}</div><div class="seg-text"></div>`;
+
+      const textDiv = div.querySelector('.seg-text');
+      if (seg.words && seg.words.length) {
+        seg.words.forEach(w => {
+          const sp = document.createElement('span');
+          sp.className = 'word-span';
+          sp.textContent = w.word;
+          sp.title = `${fmtTime(w.start)} – ${fmtTime(w.end)}${w.probability != null ? ' | p=' + w.probability.toFixed(2) : ''}`;
+          textDiv.appendChild(sp);
+        });
+      } else {
+        textDiv.textContent = seg.text;
+      }
+      slist.appendChild(div);
+    });
+  } else {
+    swrap.style.display = 'none';
+  }
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(1).padStart(4, '0');
+  return `${m}:${sec}`;
+}
+
+/* ── Copy button ────────────────────────────────────────────────────────── */
+$('btn-copy').addEventListener('click', () => {
+  const text = $('transcript-box').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = $('btn-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1800);
+  });
+});
+
+/* ── History ────────────────────────────────────────────────────────────── */
+function addHistory(d) {
+  history.unshift(d);
+  if (history.length > 20) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const ul = $('history-list');
+  const empty = $('no-history');
+  ul.innerHTML = '';
+
+  if (!history.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  history.forEach((d, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="hist-lang">${d.language}</span>
+      <span class="hist-text">${d.text || '(empty)'}</span>
+      <span class="hist-ms">${fmtMs(d.processing_time_ms)}</span>
+    `;
+    li.title = `${d.model} · ${d.request_id}`;
+    li.addEventListener('click', () => renderResult(d));
+    ul.appendChild(li);
+  });
+}
+
+/* ── Keyboard shortcut ──────────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (!$('btn-submit').disabled) $('btn-submit').click();
+  }
+});
+
+/* ── Init ───────────────────────────────────────────────────────────────── */
+(async () => {
+  await Promise.all([fetchHealth(), fetchLanguages()]);
+  // Poll health every 15 s
+  setInterval(() => fetchHealth(), 15_000);
+})();
+</script>
+</body>
+</html>

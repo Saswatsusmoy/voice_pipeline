@@ -1,0 +1,26 @@
+# ── Core framework ────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+gunicorn             # production ASGI process manager (uses UvicornWorker)
+python-multipart     # required for UploadFile / Form
+
+# ── Config ────────────────────────────────────────────────────────────────────
+pydantic
+pydantic-settings
+
+# ── Indic Conformer dependencies ─────────────────────────────────────────────
+transformers
+torch
+torchaudio
+onnx==1.20.1
+onnxruntime==1.20.1
+# GPU variant – comment out if running CPU-only:
+# onnxruntime-gpu==1.20.1
+
+# ── Whisper ───────────────────────────────────────────────────────────────────
+openai-whisper
+ffmpeg-python       # whisper uses ffmpeg for format conversion
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+numpy
+soundfile      # torchaudio 'soundfile' backend – handles WAV/FLAC without torchcodec

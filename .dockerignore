@@ -1,0 +1,60 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env.local
+.env.*.local
+
+# ── Secrets (never in image) ───────────────────────────────────────────────────
+.env
+*.pem
+*.key
+*.crt
+certs/
+
+# ── Model cache (downloaded at runtime, not baked in via context) ──────────────
+model_cache/
+
+# ── Test UI (not needed in the production image) ─────────────────────────────
+ui/
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+tests/
+test_*.py
+*_test.py
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Editors and OS artefacts ──────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Docs (don't bloat build context) ─────────────────────────────────────────
+*.md
+docs/
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+.github/
+.circleci/
+.travis.yml
+Jenkinsfile

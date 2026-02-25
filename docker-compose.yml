@@ -1,0 +1,115 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Voice Pipeline API  ·  docker compose
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Profiles
+# ────────
+#   (none)     CPU-only:    docker compose up
+#   gpu        GPU:         docker compose --profile gpu up
+#
+# First-time setup
+# ────────────────
+#   cp .env.example .env
+#   # set HF_TOKEN in .env if the Indic model is gated
+#   docker compose build
+#   docker compose up
+#
+# The nginx service is the public entry point (port 80).
+# Gunicorn binds only on the internal Docker network (port 8000, not published).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Nginx reverse proxy ────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: voice_pipeline_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"   # uncomment when TLS certs are in place
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./certs:/etc/nginx/certs:ro    # TLS certificates
+    depends_on:
+      voice-pipeline:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── API (CPU) ──────────────────────────────────────────────────────────────
+  voice-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
+    image: voice-pipeline:latest
+    container_name: voice_pipeline_api
+    restart: unless-stopped
+    # Not published externally — nginx is the only ingress.
+    expose:
+      - "8000"
+    volumes:
+      - model_cache:/app/model_cache
+    env_file:
+      - .env
+    environment:
+      DEVICE: "cpu"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKERS: ${WORKERS:-1}
+      WORKER_TIMEOUT: ${WORKER_TIMEOUT:-180}
+      FORWARDED_ALLOW_IPS: "nginx"   # nginx container name resolved by Docker DNS
+    healthcheck:
+      test:
+        - "CMD"
+        - "curl"
+        - "-sf"
+        - "http://localhost:8000/v1/live"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
+        reservations:
+          memory: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # ── API (GPU) ──────────────────────────────────────────────────────────────
+  # Usage: docker compose --profile gpu up
+  # Requires: nvidia-container-toolkit installed on the host.
+  voice-pipeline-gpu:
+    extends:
+      service: voice-pipeline
+    profiles: ["gpu"]
+    container_name: voice_pipeline_api_gpu
+    environment:
+      DEVICE: "cuda"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 12g
+        reservations:
+          memory: 4g
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+# ── Named volumes ───────────────────────────────────────────────────────────
+volumes:
+  model_cache:
+    driver: local
