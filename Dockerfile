@@ -2,20 +2,22 @@
 # Voice Pipeline API  ·  Production Docker image
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# Three-stage build:
-#   builder       – compiles Python wheels
-#   model-fetch   – pre-downloads Whisper model (no auth needed)
-#                   Indic model is downloaded at first runtime start
-#                   (requires HF_TOKEN env var or .env file)
-#   runtime       – minimal, non-root, production image
+# Two-stage build:
+#   builder  – compiles Python wheels
+#   runtime  – minimal, non-root, production image
+#
+# Both models (Whisper + Indic Conformer) are downloaded at first startup:
+#   • Whisper: downloaded from OpenAI (no auth required)
+#   • Indic Conformer: downloaded from HuggingFace (requires HF_TOKEN env var)
 #
 # Build args:
-#   WHISPER_MODEL_SIZE   (default: base)
-#   PYTHON_VERSION       (default: 3.11)
+#   PYTHON_VERSION  (default: 3.11)
 #
-# Build examples:
+# Build example:
 #   docker build -t voice-pipeline .
-#   docker build --build-arg WHISPER_MODEL_SIZE=small -t voice-pipeline .
+#
+# Runtime requirements:
+#   docker run -e HF_TOKEN=hf_xxx voice-pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG PYTHON_VERSION=3.11
@@ -38,36 +40,7 @@ RUN pip install --upgrade pip \
  && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
-# ── Stage 2: Whisper model pre-fetch ─────────────────────────────────────────
-# Whisper weights (~140 MB for 'base') are baked into the image so the
-# container needs no internet access on first boot.
-# Indic model is intentionally NOT pre-baked here because it requires an
-# HF_TOKEN which must never be a build ARG (visible in docker history).
-# The Indic model is downloaded at first startup into the model_cache volume.
-FROM python:${PYTHON_VERSION}-slim AS model-fetch
-
-ARG WHISPER_MODEL_SIZE=base
-
-# Copy only the packages needed for the download script
-COPY --from=builder /install /usr/local
-
-WORKDIR /models
-
-RUN python3 - <<'PYEOF'
-import sys, os
-size = os.environ.get("WHISPER_MODEL_SIZE", "base") or "base"
-print(f"Pre-downloading Whisper '{size}' …")
-try:
-    import whisper
-    whisper.load_model(size, download_root="/models")
-    print("Whisper pre-download complete.")
-except Exception as e:
-    print(f"WARNING: Whisper pre-download failed: {e}", file=sys.stderr)
-    print("Model will be downloaded on first container startup.", file=sys.stderr)
-PYEOF
-
-
-# ── Stage 3: production runtime ───────────────────────────────────────────────
+# ── Stage 2: production runtime ───────────────────────────────────────────────
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
 LABEL org.opencontainers.image.title="Voice Pipeline API" \
@@ -88,11 +61,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── Python packages (from builder) ────────────────────────────────────────────
 COPY --from=builder /install /usr/local
-
-# ── Pre-fetched Whisper weights (from model-fetch) ────────────────────────────
-# Placed under /app/model_cache_seed so the volume mount at /app/model_cache
-# can overlay it at runtime.  A custom entrypoint seeds the volume on first run.
-COPY --from=model-fetch /models /app/model_cache_seed
 
 # ── Application setup ─────────────────────────────────────────────────────────
 WORKDIR /app
@@ -131,9 +99,10 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["gunicorn", "app.main:app", "-c", "gunicorn.conf.py"]
 
 # Health check – uses the lightweight /v1/live endpoint
+# Start period is 5 minutes to allow for model downloads on first run
 HEALTHCHECK \
     --interval=30s \
     --timeout=10s \
-    --start-period=120s \
+    --start-period=300s \
     --retries=3 \
     CMD curl -sf http://localhost:8000/v1/live | grep -q '"alive":true' || exit 1

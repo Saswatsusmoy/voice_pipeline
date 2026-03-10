@@ -3,16 +3,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Profiles
-# ────────
 #   (none)     CPU-only:    docker compose up
 #   gpu        GPU:         docker compose --profile gpu up
 #
 # First-time setup
-# ────────────────
 #   cp .env.example .env
-#   # set HF_TOKEN in .env if the Indic model is gated
+#   # Set HF_TOKEN in .env (required for Indic Conformer model)
+#   # Set WHISPER_MODEL_SIZE in .env (optional, default: base)
 #   docker compose build
 #   docker compose up
+#
+# Note: First startup will take 2-5 minutes to download models.
+#       Subsequent starts use cached models from the volume.
 #
 # The nginx service is the public entry point (port 80).
 # Gunicorn binds only on the internal Docker network (port 8000, not published).
@@ -46,8 +48,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-      args:
-        WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
     image: voice-pipeline:latest
     container_name: voice_pipeline_api
     restart: unless-stopped
@@ -60,6 +60,7 @@ services:
       - .env
     environment:
       DEVICE: "cpu"
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       WORKERS: ${WORKERS:-1}
       WORKER_TIMEOUT: ${WORKER_TIMEOUT:-180}
@@ -73,7 +74,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 300s    # 5 min - first run downloads models
     deploy:
       resources:
         limits:
